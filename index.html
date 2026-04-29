@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dreams Hive Order Tracker</title>
+</head>
+<body style="background:#0B3D2E; color:#fff; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif; margin:0; padding:20px; min-height:100vh; display:flex; align-items:center; justify-content:center;">
+  <div style="width:100%; max-width:600px;">
+    
+    <div style="text-align:center; margin-bottom:32px;">
+      <img src="https://i.imgur.com/JN3SC1d.jpeg" alt="Dreams Hive Logo" style="width:80px;height:80px;border-radius:12px;margin:0 auto 12px;display:block;object-fit:cover;">
+      <h1 style="color:#FFFFFF; font-size:40px; font-weight:300; margin:0 0 8px 0; letter-spacing:6px;">DREAMS HIVE</h1>
+      <p style="color:#B8D4C6; margin:0; font-size:14px; letter-spacing:2px;">TRACK YOUR ORDER</p>
+    </div>
+    
+    <div style="background:#0A2E24; border:1px solid #1A4D3A; padding:28px; border-radius:20px; box-shadow:0 8px 32px rgba(0,0,0,0.4);">
+      <div style="display:flex; flex-direction:column; gap:16px;">
+        <input id="orderId" type="text" placeholder="Order ID" style="background:#0F3D2F; border:1px solid #1A4D3A; padding:14px; border-radius:10px; color:#fff; font-size:16px; outline:none;">
+        <input id="email" type="email" placeholder="Email" style="background:#0F3D2F; border:1px solid #1A4D3A; padding:14px; border-radius:10px; color:#fff; font-size:16px; outline:none;">
+        <div style="text-align:center; color:#5A8A76; font-size:12px; letter-spacing:1px;">OR</div>
+        <input id="phone" type="tel" placeholder="Phone Number" style="background:#0F3D2F; border:1px solid #1A4D3A; padding:14px; border-radius:10px; color:#fff; font-size:16px; outline:none;">
+        <button onclick="trackOrder()" style="background:#8B6914; color:#fff; font-weight:700; padding:14px; border-radius:10px; border:none; font-size:16px; cursor:pointer; letter-spacing:1px;">TRACK ORDER</button>
+      </div>
+    </div>
+    
+    <div id="result" style="margin-top:28px;"></div>
+  </div>
+
+<script>
+const API_URL = 'https://script.google.com/macros/s/AKfycbyPX1Cf4TBqh2qPJRLK3UU-zqYaS3KQF_FYLseV-GN4e4A8YzrMWlLn1DiwynyRXv9CmA/exec';
+const STATUSES = ['New', 'Paid', 'Ordered from Supplier', 'Shipped', 'Delivered'];
+
+async function trackOrder() {
+  const orderId = document.getElementById('orderId').value.trim();
+  const email = document.getElementById('email').value.trim();
+  const phone = document.getElementById('phone').value.trim();
+  const resultDiv = document.getElementById('result');
+  
+  if (!orderId || (!email &&!phone)) {
+    resultDiv.innerHTML = `<p style="color:#f87171; text-align:center;">Please enter Order ID + Email or Phone</p>`;
+    return;
+  }
+  
+  resultDiv.innerHTML = `<p style="text-align:center; color:#B8D4C6;">Searching...</p>`;
+  
+  const params = new URLSearchParams({ orderId });
+  if (email) params.append('email', email);
+  if (phone) params.append('phone', phone);
+  
+  try {
+    const res = await fetch(`${API_URL}?${params}`);
+    const data = await res.json();
+    
+    if (data.error) {
+      resultDiv.innerHTML = `<p style="color:#f87171; text-align:center;">${data.error}</p>`;
+      return;
+    }
+    
+    let html = `<div style="display:flex; flex-direction:column; gap:16px;">`;
+    data.orders.forEach(order => {
+      const currentStatusIndex = STATUSES.indexOf(order.status);
+      const productName = extractProductName(order.product);
+      html += `
+        <div style="background:#0A2E24; border:1px solid #1A4D3A; padding:24px; border-radius:16px;">
+          <p style="color:#8BD4C6; margin:0 0 12px 0; font-size:15px; font-weight:500;">Hi ${order.customerName || order.name || 'there'},</p>
+          <div style="display:flex; justify-content:space-between; align-items:start; margin-bottom:16px; gap:12px;">
+            <h3 style="color:#B8860B; font-weight:700; font-size:20px; word-break:break-word; margin:0;">${productName}</h3>
+            <span style="padding:6px 14px; border-radius:999px; font-size:13px; font-weight:600; white-space:nowrap; ${getStatusStyle(order.status)}">${order.status}</span>
+          </div>
+          
+          ${renderTimeline(currentStatusIndex)}
+          
+          <div style="display:grid; grid-template-columns:1fr 1fr; gap:14px; font-size:14px; color:#B8D4C6; margin-top:24px;">
+            <div><span style="color:#5A8A76;">Customer:</span> ${order.customerName || order.name || 'N/A'}</div>
+            <div><span style="color:#5A8A76;">Order ID:</span> ${order.orderId}</div>
+            <div><span style="color:#5A8A76;">Qty:</span> ${order.quantity}</div>
+            <div><span style="color:#5A8A76;">Size:</span> ${order.size || 'N/A'}</div>
+            <div><span style="color:#5A8A76;">Color:</span> ${order.color || 'N/A'}</div>
+            <div><span style="color:#5A8A76;">Shipping:</span> ${order.shipping}</div>
+            <div style="grid-column:1/-1;"><span style="color:#5A8A76;">Ordered:</span> ${new Date(order.timestamp).toLocaleDateString()}</div>
+          </div>
+          
+          ${order.trackingNumber? renderTrackingBox(order.trackingNumber, order.carrier) : ''}
+        </div>
+      `;
+    });
+    html += `</div>`;
+    resultDiv.innerHTML = html;
+    
+  } catch (err) {
+    resultDiv.innerHTML = `<p style="color:#f87171; text-align:center;">Error fetching order. Try again.</p>`;
+  }
+}
+
+function extractProductName(product) {
+  if (!product) return 'Product';
+  if (product.startsWith('http')) {
+    const match = product.match(/\/([^\/?]+)-p\d+/);
+    if (match) return match[1].replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+  }
+  return product;
+}
+
+function renderTrackingBox(trackingNum, carrierInput) {
+  const carrier = getCarrierLink(trackingNum, carrierInput);
+  return `
+    <div style="background:#0F3D2F; border:1px solid #B8860B; margin-top:16px; padding:16px; border-radius:10px;">
+      <p style="font-size:14px; color:#B8D4C6; margin:0 0 4px 0;">Carrier: <span style="color:#B8860B; font-weight:600;">${carrier.name}</span></p>
+      <p style="font-size:14px; color:#B8D4C6; margin:0 0 8px 0;">Tracking: <span style="color:#B8860B; font-family:monospace; font-weight:bold;">${trackingNum}</span></p>
+      <a href="${carrier.url}" target="_blank" style="color:#B8860B; font-size:14px; text-decoration:underline; font-weight:600;">Track Package →</a>
+    </div>
+  `;
+}
+
+function getCarrierLink(trackingNum, carrierInput) {
+  const num = trackingNum.toString().toUpperCase().replace(/\s/g,'');
+  const carrier = carrierInput? carrierInput.toLowerCase() : '';
+  
+  if (carrier.includes('ups')) return {name: 'UPS', url: `https://www.ups.com/track?tracknum=${num}`};
+  if (carrier.includes('fedex')) return {name: 'FedEx', url: `https://www.fedex.com/fedextrack/?trknbr=${num}`};
+  if (carrier.includes('dhl')) return {name: 'DHL', url: `https://www.dhl.com/en/express/tracking.html?AWB=${num}`};
+  if (carrier.includes('usps')) return {name: 'USPS', url: `https://tools.usps.com/go/TrackConfirmAction?tLabels=${num}`};
+  if (carrier.includes('canada post') || carrier.includes('canadapost')) return {name: 'Canada Post', url: `https://www.canadapost-postescanada.ca/track-reperage/en#/search?searchFor=${num}`};
+  if (carrier.includes('stallion')) return {name: 'Stallion Express', url: `https://stallionexpress.ca/track?num=${num}`};
+  if (carrier.includes('chit chat') || carrier.includes('chitchat')) return {name: 'Chit Chats', url: `https://chitchats.com/tracking/${num}`};
+  
+  if (carrierInput && carrierInput.trim()!=='') {
+    return {name: carrierInput, url: `https://www.google.com/search?q=${encodeURIComponent(carrierInput + ' tracking ' + num)}`};
+  }
+  
+  if (/^1Z[0-9A-Z]{16}$/.test(num)) return {name: 'UPS', url: `https://www.ups.com/track?tracknum=${num}`};
+  if (/^[0-9]{12,22}$/.test(num) && num.length >= 12) return {name: 'FedEx', url: `https://www.fedex.com/fedextrack/?trknbr=${num}`};
+  
+  return {name: 'Carrier', url: `https://www.google.com/search?q=track package ${num}`};
+}
+
+function renderTimeline(currentIndex) {
+  return `
+    <div style="display:flex; justify-content:space-between; align-items:center; margin:24px 0;">
+      ${STATUSES.map((s, i) => `
+        <div style="display:flex; flex-direction:column; align-items:center; flex:1;">
+          <div style="width:24px; height:24px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:12px; font-weight:bold; ${i <= currentIndex? 'background:#B8860B; color:#000;' : 'background:#1A4D3A; color:#5A8A76;'}">
+            ${i <= currentIndex? '✓' : i + 1}
+          </div>
+          <p style="font-size:12px; margin-top:8px; text-align:center; ${i <= currentIndex? 'color:#B8D4C6;' : 'color:#5A8A76;'}">${s.replace('Ordered from Supplier','Supplier')}</p>
+        </div>
+        ${i < STATUSES.length - 1? `<div style="flex:1; height:2px; margin:0 4px; ${i < currentIndex? 'background:#B8860B;' : 'background:#1A4D3A;'}"></div>` : ''}
+      `).join('')}
+    </div>
+  `;
+}
+
+function getStatusStyle(status) {
+  switch(status) {
+    case 'New': return 'background:rgba(59,130,246,0.2); color:#93c5fd;';
+    case 'Paid': return 'background:rgba(234,179,8,0.2); color:#fde047;';
+    case 'Ordered from Supplier': return 'background:rgba(168,85,247,0.2); color:#d8b4fe;';
+    case 'Shipped': return 'background:rgba(34,197,94,0.2); color:#86efac;';
+    case 'Delivered': return 'background:rgba(16,185,129,0.2); color:#6ee7b7;';
+    default: return 'background:rgba(90,138,118,0.2); color:#B8D4C6;';
+  }
+}
+</script>
+</body>
+</html>
