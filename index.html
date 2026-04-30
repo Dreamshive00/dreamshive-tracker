@@ -162,18 +162,14 @@ function getStatusStyle(status) {
   }
 }
 
-// QR AUTO-FILL - ADDED THIS PART ONLY
+// UPDATED: QR AUTO-FILL — Order ID only, no email exposure
 window.addEventListener('DOMContentLoaded', function() {
   const params = new URLSearchParams(window.location.search);
   const orderId = params.get('orderId');
-  const email = params.get('email');
   
-  if (orderId) document.getElementById('orderId').value = orderId;
-  if (email) document.getElementById('email').value = email;
-  
-  // Auto-submit if both exist
-  if (orderId && email) {
-    trackOrder();
+  if (orderId) {
+    document.getElementById('orderId').value = orderId;
+    // Customer must enter email/phone manually — no PII leak
   }
 });
 </script>
