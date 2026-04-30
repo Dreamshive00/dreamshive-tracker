@@ -161,6 +161,21 @@ function getStatusStyle(status) {
     default: return 'background:rgba(90,138,118,0.2); color:#B8D4C6;';
   }
 }
+
+// QR AUTO-FILL - ADDED THIS PART ONLY
+window.addEventListener('DOMContentLoaded', function() {
+  const params = new URLSearchParams(window.location.search);
+  const orderId = params.get('orderId');
+  const email = params.get('email');
+  
+  if (orderId) document.getElementById('orderId').value = orderId;
+  if (email) document.getElementById('email').value = email;
+  
+  // Auto-submit if both exist
+  if (orderId && email) {
+    trackOrder();
+  }
+});
 </script>
 </body>
 </html>
